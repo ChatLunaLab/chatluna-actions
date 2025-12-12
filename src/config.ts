@@ -13,6 +13,8 @@ export interface Config {
         inputPrompt?: string
         registerAsTool?: boolean
         allowExecuteWithoutMessage?: boolean
+        useAtAvatar?: boolean
+        senderAvatarMode?: 'none' | 'fallback' | 'always'
     }[]
     interceptCommands: {
         interceptPosition: 'before' | 'after'
@@ -63,9 +65,16 @@ export const Config = Schema.intersect([
                 registerAsTool: Schema.boolean()
                     .default(false)
                     .description('是否注册为 ChatLuna 工具'),
-                allowExecuteWithoutMessage: Schema.boolean()
+                useAtAvatar: Schema.boolean()
                     .default(false)
-                    .description('是否允许无参数直接执行命令')
+                    .description('是否将艾特的用户的头像作为图片传入 (追加在原有图片之后)'),
+                senderAvatarMode: Schema.union([
+                    Schema.const('none').description('不传入'),
+                    Schema.const('fallback').description('无艾特对象时传入'),
+                    Schema.const('always').description('始终传入')
+                ])
+                    .default('none')
+                    .description('是否传入用户自身的头像 (始终放在图片列表最后)')
             })
         )
             .default([])
