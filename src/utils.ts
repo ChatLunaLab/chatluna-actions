@@ -25,7 +25,7 @@ function appendAvatarImages(
     elements: h[],
     session: Session,
     options?: MessageTransformOptions
-) {
+): string | undefined {
     if (!options) {
         return
     }
@@ -59,9 +59,31 @@ function appendAvatarImages(
         }
     }
 
-    if (addedImages.length > 0) {
+    if (addedImages.length === 0) {
+        return
+    }
+
+    const lastImageIndex = (() => {
+        for (let i = elements.length - 1; i >= 0; i--) {
+            if (elements[i].type === 'image') {
+                return i
+            }
+        }
+        return -1
+    })()
+
+    if (lastImageIndex >= 0) {
+        elements.splice(lastImageIndex + 1, 0, ...addedImages)
+    } else {
         elements.push(...addedImages)
     }
+
+    return elements.join('')
+}
+
+export interface TransformResult {
+    humanMessage: HumanMessage
+    message: string
 }
 
 export async function transformAndFormatMessage(
@@ -71,9 +93,11 @@ export async function transformAndFormatMessage(
     modelName: string,
     inputPromptTemplate: string,
     options?: MessageTransformOptions
-): Promise<HumanMessage> {
-    const elements = h.parse(message || '')
-    appendAvatarImages(elements, session, options)
+): Promise<TransformResult> {
+    const parsedInput = message || ''
+    const elements = h.parse(parsedInput)
+    const recomposedMessage = appendAvatarImages(elements, session, options)
+    const normalizedMessage = recomposedMessage ?? message ?? elements.join('')
 
     const transformedMessage = await ctx.chatluna.messageTransformer.transform(
         session,
@@ -97,12 +121,15 @@ export async function transformAndFormatMessage(
                   return part
               })
 
-    return new HumanMessage({
-        content: finalMessageContent,
-        name: transformedMessage.name,
-        id: session.userId,
-        additional_kwargs: { ...transformedMessage.additional_kwargs }
-    })
+    return {
+        humanMessage: new HumanMessage({
+            content: finalMessageContent,
+            name: transformedMessage.name,
+            id: session.userId,
+            additional_kwargs: { ...transformedMessage.additional_kwargs }
+        }),
+        message: normalizedMessage
+    }
 }
 
 export function buildChainVariables(ctx: Context, session: Session) {

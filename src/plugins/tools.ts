@@ -63,7 +63,7 @@ class ActionTool extends StructuredTool {
         const session = config.configurable.session
 
         try {
-            const humanMessage = await transformAndFormatMessage(
+            const { humanMessage } = await transformAndFormatMessage(
                 this.ctx,
                 session,
                 input.input,
