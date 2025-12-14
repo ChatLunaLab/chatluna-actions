@@ -15,14 +15,113 @@ import { ChatLunaChatPromptFormat } from 'koishi-plugin-chatluna/llm-core/chain/
 import { ChatLunaChatModel } from 'koishi-plugin-chatluna/llm-core/platform/model'
 import { randomUUID } from 'crypto'
 
+export interface MessageTransformOptions {
+    useAtAvatar?: boolean
+    senderAvatarMode?: 'none' | 'fallback' | 'always'
+}
+
+async function createAvatarImage(
+    session: Session,
+    userId: string
+): Promise<h | null> {
+    if (!userId) {
+        return null
+    }
+
+    try {
+        const user = await session.bot?.getUser?.(userId, session.guildId)
+        const avatarUrl = user?.avatar ?? getAvatarUrl(userId)
+        return h.image(avatarUrl)
+    } catch {
+        return h.image(getAvatarUrl(userId))
+    }
+}
+
+// Append mention and sender avatars when requested in options.
+async function appendAvatarImages(
+    elements: h[],
+    session: Session,
+    options?: MessageTransformOptions
+): Promise<void> {
+    if (!options) {
+        return
+    }
+
+    const addedImages: h[] = []
+    let atAvatarAdded = false
+
+    if (options.useAtAvatar) {
+        const atIds = elements
+            .filter((element) => element.type === 'at')
+            .map((element) => element.attrs?.id)
+            .filter((id): id is string => Boolean(id))
+
+        if (atIds.length > 0) {
+            const atImages = (
+                await Promise.all(
+                    atIds.map((id) => createAvatarImage(session, id))
+                )
+            ).filter((image): image is h => Boolean(image))
+
+            if (atImages.length > 0) {
+                addedImages.push(...atImages)
+                atAvatarAdded = true
+            }
+        }
+    }
+
+    const senderMode = options.senderAvatarMode ?? 'none'
+    if (senderMode !== 'none') {
+        const userId = session.userId
+        if (userId) {
+            const senderImage = await createAvatarImage(session, userId)
+            if (senderImage) {
+                if (senderMode === 'always') {
+                    addedImages.push(senderImage)
+                } else if (senderMode === 'fallback' && !atAvatarAdded) {
+                    addedImages.push(senderImage)
+                }
+            }
+        }
+    }
+
+    if (addedImages.length === 0) {
+        return
+    }
+
+    let lastImageIndex = -1
+    for (let i = elements.length - 1; i >= 0; i--) {
+        if (elements[i].type === 'image') {
+            lastImageIndex = i
+            break
+        }
+    }
+
+    if (lastImageIndex >= 0) {
+        elements.splice(lastImageIndex + 1, 0, ...addedImages)
+    } else {
+        elements.push(...addedImages)
+    }
+}
+
+export interface TransformResult {
+    humanMessage: HumanMessage
+    message: string
+}
+
 export async function transformAndFormatMessage(
     ctx: Context,
     session: Session,
-    message: string,
+    message: string | undefined,
     modelName: string,
-    inputPromptTemplate: string
-) {
-    const elements = h.parse(message)
+    inputPromptTemplate: string,
+    options?: MessageTransformOptions
+): Promise<TransformResult> {
+    const parsedInput = message || ''
+    const elements = h.parse(parsedInput)
+    await appendAvatarImages(elements, session, options)
+    const normalizedMessage = elements.join('')
+
     const transformedMessage = await ctx.chatluna.messageTransformer.transform(
         session,
         elements,
@@ -45,12 +144,15 @@ export async function transformAndFormatMessage(
                   return part
               })
 
-    return new HumanMessage({
-        content: finalMessageContent,
-        name: transformedMessage.name,
-        id: session.userId,
-        additional_kwargs: { ...transformedMessage.additional_kwargs }
-    })
+    return {
+        humanMessage: new HumanMessage({
+            content: finalMessageContent,
+            name: transformedMessage.name,
+            id: session.userId,
+            additional_kwargs: { ...transformedMessage.additional_kwargs }
+        }),
+        message: normalizedMessage
+    }
 }
 
 export function buildChainVariables(ctx: Context, session: Session) {
@@ -77,6 +179,9 @@ export function buildChainVariables(ctx: Context, session: Session) {
         weekday: getCurrentWeekday()
     }
 }
+
+export const getAvatarUrl = (id: string) =>
+    `http://q.qlogo.cn/headimg_dl?dst_uin=${id}&spec=640`
 
 export async function invokeChain(
     chain: Runnable<

@@ -43,7 +43,7 @@ class ActionTool extends StructuredTool {
     name: string
     description: string
     schema = z.object({
-        input: z.string().describe('User input for the action')
+        input: z.string().describe('Input koishi element for the action')
     })
 
     ref: Awaited<ReturnType<Context['chatluna_action_model']['getChain']>>
@@ -81,12 +81,16 @@ class ActionTool extends StructuredTool {
         const session = config.configurable.session
 
         try {
-            const humanMessage = await transformAndFormatMessage(
+            const { humanMessage } = await transformAndFormatMessage(
                 this.ctx,
                 session,
                 input.input,
                 this.command.model,
-                this.command.inputPrompt
+                this.command.inputPrompt,
+                {
+                    useAtAvatar: this.command.useAtAvatar,
+                    senderAvatarMode: this.command.senderAvatarMode
+                }
             )
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

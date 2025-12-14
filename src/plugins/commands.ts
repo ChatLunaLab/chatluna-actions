@@ -36,14 +36,21 @@ export function apply(ctx: Context, config: Config) {
                 return
             }
 
-            logger.debug(`Received command: ${command.command} ${message}`)
+            const { humanMessage, message: transformedInput } =
+                await transformAndFormatMessage(
+                    ctx,
+                    session,
+                    message,
+                    command.model,
+                    command.inputPrompt,
+                    {
+                        useAtAvatar: command.useAtAvatar,
+                        senderAvatarMode: command.senderAvatarMode
+                    }
+                )
 
-            const humanMessage = await transformAndFormatMessage(
-                ctx,
-                session,
-                message,
-                command.model,
-                command.inputPrompt
+            logger.debug(
+                `Received command: ${command.command} ${transformedInput}`
             )
 
             const preset = resolvePreset(
@@ -124,13 +131,17 @@ export function apply(ctx: Context, config: Config) {
                 interceptCommand.model
             )
 
-        const humanMessage = await transformAndFormatMessage(
+        const { humanMessage } = await transformAndFormatMessage(
             ctx,
             session,
             getMessageContent(transformedMessage.content),
             interceptCommand.model,
             interceptCommand.inputPrompt
         )
+
+        if (!humanMessage) {
+            return
+        }
 
         const preset = resolvePreset(
             ctx,
