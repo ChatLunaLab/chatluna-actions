@@ -54,7 +54,10 @@ class ActionTool extends StructuredTool {
     ) {
         super()
         this.name = normalizeCommandName(this.command.command)
-        this.description = this.command.description || 'Execute action'
+        const baseDescription = this.command.description || 'Execute action'
+        const formatHint =
+            'Input must be Koishi message elements written as plain text. Follow the standard element schema each adapter implements even if behaviors differ, and remember Koishi only borrows HTML-like tags (<p>, <em>, <u>, <image>) without inheriting HTML semantics. Examples: plain text -> 欢迎 @用户名 入群！, mention -> 欢迎 <at id={userId}/> 入群！, image -> <img src="https://koishi.chat/logo.png"/>.'
+        this.description = `${baseDescription}. ${formatHint}`
 
         ctx.on('ready', async () => {
             const preset = resolvePreset(

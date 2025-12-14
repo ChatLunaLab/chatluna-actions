@@ -27,7 +27,7 @@ export function apply(ctx: Context, config: Config) {
                 : dirname(fileURLToPath(import.meta.url))
 
         ctx.console.addEntry({
-            dev: resolve(baseDir, '../client/index.ts'),
+            dev: resolve(baseDir, '../dist'),
             prod: resolve(baseDir, '../dist')
         })
     })
