@@ -20,12 +20,29 @@ export interface MessageTransformOptions {
     senderAvatarMode?: 'none' | 'fallback' | 'always'
 }
 
+async function createAvatarImage(
+    session: Session,
+    userId: string
+): Promise<h | null> {
+    if (!userId) {
+        return null
+    }
+
+    try {
+        const user = await session.bot?.getUser?.(userId, session.guildId)
+        const avatarUrl = user?.avatar ?? getAvatarUrl(userId)
+        return h.image(avatarUrl)
+    } catch {
+        return h.image(getAvatarUrl(userId))
+    }
+}
+
 // Append mention and sender avatars when requested in options.
-function appendAvatarImages(
+async function appendAvatarImages(
     elements: h[],
     session: Session,
     options?: MessageTransformOptions
-): string | undefined {
+): Promise<void> {
     if (!options) {
         return
     }
@@ -34,15 +51,22 @@ function appendAvatarImages(
     let atAvatarAdded = false
 
     if (options.useAtAvatar) {
-        const atImages = elements
+        const atIds = elements
             .filter((element) => element.type === 'at')
             .map((element) => element.attrs?.id)
             .filter((id): id is string => Boolean(id))
-            .map((id) => h.image(getAvatarUrl(id)))
 
-        if (atImages.length > 0) {
-            addedImages.push(...atImages)
-            atAvatarAdded = true
+        if (atIds.length > 0) {
+            const atImages = (
+                await Promise.all(
+                    atIds.map((id) => createAvatarImage(session, id))
+                )
+            ).filter((image): image is h => Boolean(image))
+
+            if (atImages.length > 0) {
+                addedImages.push(...atImages)
+                atAvatarAdded = true
+            }
         }
     }
 
@@ -50,11 +74,13 @@ function appendAvatarImages(
     if (senderMode !== 'none') {
         const userId = session.userId
         if (userId) {
-            const senderImage = h.image(getAvatarUrl(userId))
-            if (senderMode === 'always') {
-                addedImages.push(senderImage)
-            } else if (senderMode === 'fallback' && !atAvatarAdded) {
-                addedImages.push(senderImage)
+            const senderImage = await createAvatarImage(session, userId)
+            if (senderImage) {
+                if (senderMode === 'always') {
+                    addedImages.push(senderImage)
+                } else if (senderMode === 'fallback' && !atAvatarAdded) {
+                    addedImages.push(senderImage)
+                }
             }
         }
     }
@@ -63,22 +89,19 @@ function appendAvatarImages(
         return
     }
 
-    const lastImageIndex = (() => {
-        for (let i = elements.length - 1; i >= 0; i--) {
-            if (elements[i].type === 'image') {
-                return i
-            }
+    let lastImageIndex = -1
+    for (let i = elements.length - 1; i >= 0; i--) {
+        if (elements[i].type === 'image') {
+            lastImageIndex = i
+            break
         }
-        return -1
-    })()
+    }
 
     if (lastImageIndex >= 0) {
         elements.splice(lastImageIndex + 1, 0, ...addedImages)
     } else {
         elements.push(...addedImages)
     }
-
-    return elements.join('')
 }
 
 export interface TransformResult {
@@ -96,8 +119,8 @@ export async function transformAndFormatMessage(
 ): Promise<TransformResult> {
     const parsedInput = message || ''
     const elements = h.parse(parsedInput)
-    const recomposedMessage = appendAvatarImages(elements, session, options)
-    const normalizedMessage = recomposedMessage ?? message ?? elements.join('')
+    await appendAvatarImages(elements, session, options)
+    const normalizedMessage = elements.join('')
 
     const transformedMessage = await ctx.chatluna.messageTransformer.transform(
         session,
