@@ -22,6 +22,7 @@ import {
     ChatLunaErrorCode
 } from 'koishi-plugin-chatluna/utils/error'
 import { computed, ComputedRef } from 'koishi-plugin-chatluna'
+import { Embeddings } from '@langchain/core/embeddings'
 
 export class ModelService extends Service {
     private _chains: Record<
@@ -71,11 +72,13 @@ export class ModelService extends Service {
 
         const llm = await this.ctx.chatluna.createChatModel(model)
 
+        const embeddingsRef = await this._createEmbeddings()
+
         if (llm.value == null) {
             throw new ChatLunaError(ChatLunaErrorCode.MODEL_NOT_FOUND)
         }
 
-        await this._createChain(currentPreset, llm, key, chatMode)
+        this._createChain(currentPreset, llm, embeddingsRef, key, chatMode)
 
         return this._chains[key]
     }
@@ -83,6 +86,7 @@ export class ModelService extends Service {
     private async _createChain(
         currentPreset: ComputedRef<PresetTemplate>,
         llmRef: ComputedRef<ChatLunaChatModel>,
+        embeddingsRef: ComputedRef<Embeddings>,
         key: string,
         chatMode: 'chat' | 'plugin'
     ) {
@@ -99,8 +103,6 @@ export class ModelService extends Service {
         })
 
         if (chatMode === 'plugin') {
-            const embeddingsRef = await this._createEmbeddings()
-
             const toolsRef = this.ctx.chatluna.platform.getTools()
 
             const toolsComputed = computed(() =>

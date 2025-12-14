@@ -46,6 +46,8 @@ class ActionTool extends StructuredTool {
         input: z.string().describe('User input for the action')
     })
 
+    ref: Awaited<ReturnType<Context['chatluna_action_model']['getChain']>>
+
     constructor(
         private ctx: Context,
         private command: Config['commands'][0]
@@ -53,6 +55,22 @@ class ActionTool extends StructuredTool {
         super()
         this.name = normalizeCommandName(this.command.command)
         this.description = this.command.description || 'Execute action'
+
+        ctx.on('ready', async () => {
+            const preset = resolvePreset(
+                this.ctx,
+                this.command.promptType,
+                this.command.prompt,
+                this.command.preset
+            )
+
+            this.ref = await this.ctx.chatluna_action_model.getChain(
+                this.command.command,
+                this.command.model,
+                preset,
+                this.command.chatMode
+            )
+        })
     }
 
     async _call(
@@ -71,21 +89,8 @@ class ActionTool extends StructuredTool {
                 this.command.inputPrompt
             )
 
-            const preset = resolvePreset(
-                this.ctx,
-                this.command.promptType,
-                this.command.prompt,
-                this.command.preset
-            )
-
-            const [chain, llm] = await this.ctx.chatluna_action_model
-                .getChain(
-                    this.command.command,
-                    this.command.model,
-                    preset,
-                    this.command.chatMode
-                )
-                .then((ref) => ref.value)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const [chain, llm] = this.ref as unknown as any
 
             const variables = buildChainVariables(this.ctx, session)
             const result = await invokeChain(
