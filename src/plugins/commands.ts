@@ -25,65 +25,6 @@ export function apply(ctx: Context, config: Config) {
                 return '此命令没有选择模型，请联系管理员配置模型并重置。'
             }
 
-            // --- 修改后的逻辑开始 ---
-
-            // 即使 message 为空，也先解析（为了后续注入头像）
-            // message 可能为 undefined，转为空字符串处理
-            const elements = h.parse(message || '')
-            
-            // 辅助函数：生成QQ头像链接
-            const getAvatarUrl = (id: string) => `http://q.qlogo.cn/headimg_dl?dst_uin=${id}&spec=640`
-
-            const addedImages: h[] = []
-            let atAvatarAdded = false
-
-            // 处理 Feature 1: 艾特用户的头像
-            if (command.useAtAvatar) {
-                const atElements = elements.filter(e => e.type === 'at')
-                if (atElements.length > 0) {
-                    const atImages = atElements
-                        .map(e => e.attrs.id)
-                        .filter(id => id)
-                        .map(id => h.image(getAvatarUrl(id)))
-                    
-                    if (atImages.length > 0) {
-                        addedImages.push(...atImages)
-                        atAvatarAdded = true
-                    }
-                }
-            }
-
-            // 处理 Feature 2: 用户自身头像逻辑
-            const senderMode = command.senderAvatarMode || 'none'
-            if (senderMode !== 'none') {
-                const userId = session.userId
-                if (userId) {
-                    const senderImage = h.image(getAvatarUrl(userId))
-                    
-                    if (senderMode === 'always') {
-                        // 始终传入
-                        addedImages.push(senderImage)
-                    } else if (senderMode === 'fallback') {
-                        // 仅在没有艾特头像时传入
-                        if (!atAvatarAdded) {
-                            addedImages.push(senderImage)
-                        }
-                    }
-                }
-            }
-
-            // 将新图片追加到 elements 中
-            if (addedImages.length > 0) {
-                elements.push(...addedImages)
-                // 重新组合 message，此时如果注入了图片，message 将不再为空
-                message = elements.join('')
-            }
-
-            // 现在进行空消息检查
-            // 逻辑解释：
-            // - 如果 message 本身为空且没注入图片 -> 为空
-            // - 如果 message 本身为空但注入了图片 -> 不为空 (包含 <image ...>)
-            // - 如果此时仍为空，检查引用回复或配置是否允许空消息执行
             if (
                 ((message == null || message === '') && session.quote) ||
                 command.allowExecuteWithoutMessage
@@ -91,13 +32,10 @@ export function apply(ctx: Context, config: Config) {
                 message = message || '[ ]'
             }
 
-            // 最终拦截：如果经过上述步骤 message 依然为空，则不执行
             if (!message) {
                 return
             }
 
-            // --- 修改后的逻辑结束 ---
-  
             logger.debug(`Received command: ${command.command} ${message}`)
 
             const humanMessage = await transformAndFormatMessage(
@@ -105,7 +43,11 @@ export function apply(ctx: Context, config: Config) {
                 session,
                 message,
                 command.model,
-                command.inputPrompt
+                command.inputPrompt,
+                {
+                    useAtAvatar: command.useAtAvatar,
+                    senderAvatarMode: command.senderAvatarMode
+                }
             )
 
             const preset = resolvePreset(
@@ -193,6 +135,10 @@ export function apply(ctx: Context, config: Config) {
             interceptCommand.model,
             interceptCommand.inputPrompt
         )
+
+        if (!humanMessage) {
+            return
+        }
 
         const preset = resolvePreset(
             ctx,

@@ -15,14 +15,66 @@ import { ChatLunaChatPromptFormat } from 'koishi-plugin-chatluna/llm-core/chain/
 import { ChatLunaChatModel } from 'koishi-plugin-chatluna/llm-core/platform/model'
 import { randomUUID } from 'crypto'
 
+export interface MessageTransformOptions {
+    useAtAvatar?: boolean
+    senderAvatarMode?: 'none' | 'fallback' | 'always'
+}
+
+// Append mention and sender avatars when requested in options.
+function appendAvatarImages(
+    elements: h[],
+    session: Session,
+    options?: MessageTransformOptions
+) {
+    if (!options) {
+        return
+    }
+
+    const addedImages: h[] = []
+    let atAvatarAdded = false
+
+    if (options.useAtAvatar) {
+        const atImages = elements
+            .filter((element) => element.type === 'at')
+            .map((element) => element.attrs?.id)
+            .filter((id): id is string => Boolean(id))
+            .map((id) => h.image(getAvatarUrl(id)))
+
+        if (atImages.length > 0) {
+            addedImages.push(...atImages)
+            atAvatarAdded = true
+        }
+    }
+
+    const senderMode = options.senderAvatarMode ?? 'none'
+    if (senderMode !== 'none') {
+        const userId = session.userId
+        if (userId) {
+            const senderImage = h.image(getAvatarUrl(userId))
+            if (senderMode === 'always') {
+                addedImages.push(senderImage)
+            } else if (senderMode === 'fallback' && !atAvatarAdded) {
+                addedImages.push(senderImage)
+            }
+        }
+    }
+
+    if (addedImages.length > 0) {
+        elements.push(...addedImages)
+    }
+}
+
 export async function transformAndFormatMessage(
     ctx: Context,
     session: Session,
-    message: string,
+    message: string | undefined,
     modelName: string,
-    inputPromptTemplate: string
-) {
-    const elements = h.parse(message)
+    inputPromptTemplate: string,
+    options?: MessageTransformOptions
+): Promise<HumanMessage> {
+    const elements = h.parse(message || '')
+    appendAvatarImages(elements, session, options)
+
     const transformedMessage = await ctx.chatluna.messageTransformer.transform(
         session,
         elements,
@@ -77,6 +129,9 @@ export function buildChainVariables(ctx: Context, session: Session) {
         weekday: getCurrentWeekday()
     }
 }
+
+export const getAvatarUrl = (id: string) =>
+    `http://q.qlogo.cn/headimg_dl?dst_uin=${id}&spec=640`
 
 export async function invokeChain(
     chain: Runnable<

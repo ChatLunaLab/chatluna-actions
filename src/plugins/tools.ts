@@ -43,7 +43,7 @@ class ActionTool extends StructuredTool {
     name: string
     description: string
     schema = z.object({
-        input: z.string().describe('User input for the action')
+        input: z.string().describe('Input koishi element for the action')
     })
 
     constructor(
@@ -68,7 +68,11 @@ class ActionTool extends StructuredTool {
                 session,
                 input.input,
                 this.command.model,
-                this.command.inputPrompt
+                this.command.inputPrompt,
+                {
+                    useAtAvatar: this.command.useAtAvatar,
+                    senderAvatarMode: this.command.senderAvatarMode
+                }
             )
 
             const preset = resolvePreset(
