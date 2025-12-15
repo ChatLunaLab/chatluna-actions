@@ -43,7 +43,7 @@ class ActionTool extends StructuredTool {
     name: string
     description: string
     schema = z.object({
-        input: z.string().describe('Input koishi element for the action')
+        message: z.string().describe('Koishi message element for the action')
     })
 
     ref: Awaited<ReturnType<Context['chatluna_action_model']['getChain']>>
@@ -77,7 +77,7 @@ class ActionTool extends StructuredTool {
     }
 
     async _call(
-        input: { input: string },
+        input: { message: string },
         runManager: CallbackManagerForToolRun,
         config: ChatLunaToolRunnable
     ) {
@@ -87,7 +87,7 @@ class ActionTool extends StructuredTool {
             const { humanMessage } = await transformAndFormatMessage(
                 this.ctx,
                 session,
-                input.input,
+                input.message,
                 this.command.model,
                 this.command.inputPrompt,
                 {
