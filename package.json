@@ -1,7 +1,7 @@
 {
     "name": "koishi-plugin-chatluna-actions",
     "description": "customize actions for chatluna",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "type": "module",
     "main": "lib/index.cjs",
     "module": "lib/index.mjs",
@@ -42,25 +42,25 @@
     },
     "homepage": "https://github.com/ChatLunaLab/chatluna-actions#readme",
     "dependencies": {
-        "@langchain/core": "0.3.62",
+        "@langchain/core": "^0.3.80",
         "zod": "3.25.76"
     },
     "resolutions": {
-        "@langchain/core": "0.3.62",
+        "@langchain/core": "^0.3.80",
         "js-tiktoken": "npm:@dingyi222666/js-tiktoken@^1.0.21"
     },
     "overrides": {
-        "@langchain/core": "0.3.62",
+        "@langchain/core": "^0.3.80",
         "js-tiktoken": "npm:@dingyi222666/js-tiktoken@^1.0.21"
     },
     "pnpm": {
         "overrides": {
-            "@langchain/core": "0.3.62",
+            "@langchain/core": "^0.3.80",
             "js-tiktoken": "npm:@dingyi222666/js-tiktoken@^1.0.21"
         }
     },
     "devDependencies": {
-        "@koishijs/client": "^5.30.9",
+        "@koishijs/client": "^5.30.11",
         "@typescript-eslint/eslint-plugin": "^7.18.1-alpha.3",
         "@typescript-eslint/parser": "^8.45.1-alpha.0",
         "atsc": "^1.2.2",
