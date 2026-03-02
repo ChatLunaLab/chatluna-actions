@@ -98,7 +98,8 @@ export class ModelService extends Service {
                 sendTokenLimit:
                     llm.invocationParams().maxTokenLimit ??
                     llm.getModelMaxContextSize(),
-                promptRenderService: this.ctx.chatluna.promptRenderer
+                promptRenderService: this.ctx.chatluna.promptRenderer,
+                contextManager: this.ctx.chatluna.contextManager
             })
         })
 
